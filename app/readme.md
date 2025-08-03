@@ -1,1 +1,1 @@
-# app folder from app store
+# app folder from app store or third party
