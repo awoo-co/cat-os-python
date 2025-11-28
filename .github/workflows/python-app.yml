@@ -136,6 +136,40 @@ jobs:
           asset_name: cat-os-linux-${{ github.ref_name }}.zip
           asset_content_type: application/zip
 
+      - name: Upload stable-named Linux asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/dist-linux.zip
+          asset_name: cat-os-linux.zip
+          asset_content_type: application/zip
+
+      - name: Checkout `main` to update README
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          ref: main
+
+      - name: Update README with latest download link
+        env:
+          DOWNLOAD_URL: "https://github.com/awoo-co/cat-os-python/releases/latest/download/cat-os-linux.zip"
+        run: |
+          echo "Updating README.md with $DOWNLOAD_URL"
+          # If README already has the badge/link, replace it; otherwise append at the end
+          if grep -q "\[Download latest Linux build\]" README.md; then
+            sed -i "s|\[Download latest Linux build\].*|[Download latest Linux build]($DOWNLOAD_URL)|" README.md
+          else
+            echo "" >> README.md
+            echo "[Download latest Linux build]($DOWNLOAD_URL)" >> README.md
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          git commit -m "Update README: latest release download link" || echo "No changes to commit"
+          git push origin main || echo "Push failed (branch protection?) - README updated locally"
+
       #- name: Upload Windows asset
       #  uses: actions/upload-release-asset@v1
       #  env:
