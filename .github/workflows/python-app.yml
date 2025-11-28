@@ -3,12 +3,17 @@ name: Cat os python builder
 on:
   push:
     branches: [ main ]
+    tags: [ 'v*' ]
   pull_request:
     branches: [ main ]
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    name: Build (${ { matrix.os } })
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
 
     steps:
       - name: Checkout
@@ -28,15 +33,108 @@ jobs:
         run: |
           pytest -q || true   # adjust/remove if you want failures to stop the workflow
 
+      - name: Set platform env (Windows)
+        if: matrix.os == 'windows-latest'
+        run: echo "PLATFORM=windows" >> $GITHUB_ENV
+
+      - name: Set platform env (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: echo "PLATFORM=linux" >> $GITHUB_ENV
+
       - name: PyInstaller Build
         uses: eric2788/pyinstaller-build@0.1.3
         with:
-          main: start                # main python file name (without .py)
-          dist: dist                 # optional, default is ./dist
-          python_version: "3.11"     # optional: match the runner python
-          pyinstaller_version: "5.12" 
-          artifact: cat-os           # output exe name
+          main: start
+          dist: dist
+          python_version: "3.11"
+          pyinstaller_version: "5.12"
+          artifact: cat-os-${{ env.PLATFORM }}
           use-dependencies: "true"
-          no-console: "true"
-          icon: icon.ico     # optional
+          no-console: "false"
+
+      - name: Archive build output (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          if [ -d dist ]; then
+            zip -r dist-linux.zip dist/
+            ls -lah dist-linux.zip
+          else
+            echo "dist directory not found; nothing to archive"
+            exit 1
+          fi
+
+      - name: Archive build output (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          if (Test-Path -Path 'dist') {
+            Compress-Archive -Path 'dist\\*' -DestinationPath 'dist-windows.zip' -Force
+            Get-ChildItem dist-windows.zip | Format-List
+          } else {
+            Write-Error 'dist directory not found'
+            exit 1
+          }
+
+      - name: Upload artifact (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-linux.zip
+          path: dist-linux.zip
+
+      - name: Upload artifact (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-windows.zip
+          path: dist-windows.zip
+
+  release:
+    name: Create Release (tags only)
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Linux artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-linux.zip
+          path: artifacts
+
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-windows.zip
+          path: artifacts
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name }}
+          release_name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+
+      - name: Upload Linux asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/dist-linux.zip
+          asset_name: cat-os-linux-${{ github.ref_name }}.zip
+          asset_content_type: application/zip
+
+      - name: Upload Windows asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/dist-windows.zip
+          asset_name: cat-os-windows-${{ github.ref_name }}.zip
+          asset_content_type: application/zip
 
