@@ -13,7 +13,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest] # , windows-latest  # windows commented out for now
 
     steps:
       - name: Checkout
@@ -33,9 +33,9 @@ jobs:
         run: |
           pytest -q || true   # adjust/remove if you want failures to stop the workflow
 
-      - name: Set platform env (Windows)
-        if: matrix.os == 'windows-latest'
-        run: echo "PLATFORM=windows" >> $GITHUB_ENV
+      #- name: Set platform env (Windows)
+      #  if: matrix.os == 'windows-latest'
+      #  run: echo "PLATFORM=windows" >> $GITHUB_ENV
 
       - name: Set platform env (Linux)
         if: matrix.os == 'ubuntu-latest'
@@ -63,17 +63,17 @@ jobs:
             exit 1
           fi
 
-      - name: Archive build output (Windows)
-        if: matrix.os == 'windows-latest'
-        shell: pwsh
-        run: |
-          if (Test-Path -Path 'dist') {
-            Compress-Archive -Path 'dist\\*' -DestinationPath 'dist-windows.zip' -Force
-            Get-ChildItem dist-windows.zip | Format-List
-          } else {
-            Write-Error 'dist directory not found'
-            exit 1
-          }
+      #- name: Archive build output (Windows)
+      #  if: matrix.os == 'windows-latest'
+      #  shell: pwsh
+      #  run: |
+      #    if (Test-Path -Path 'dist') {
+      #      Compress-Archive -Path 'dist\\*' -DestinationPath 'dist-windows.zip' -Force
+      #      Get-ChildItem dist-windows.zip | Format-List
+      #    } else {
+      #      Write-Error 'dist directory not found'
+      #      exit 1
+      #    }
 
       - name: Upload artifact (Linux)
         if: matrix.os == 'ubuntu-latest'
@@ -81,13 +81,12 @@ jobs:
         with:
           name: dist-linux.zip
           path: dist-linux.zip
-
-      - name: Upload artifact (Windows)
-        if: matrix.os == 'windows-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: dist-windows.zip
-          path: dist-windows.zip
+      #- name: Upload artifact (Windows)
+      #  if: matrix.os == 'windows-latest'
+      #  uses: actions/upload-artifact@v4
+      #  with:
+      #    name: dist-windows.zip
+      #    path: dist-windows.zip
 
   release:
     name: Create Release (tags only)
@@ -101,11 +100,11 @@ jobs:
           name: dist-linux.zip
           path: artifacts
 
-      - name: Download Windows artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: dist-windows.zip
-          path: artifacts
+      #- name: Download Windows artifact
+      #  uses: actions/download-artifact@v4
+      #  with:
+      #    name: dist-windows.zip
+      #    path: artifacts
 
       - name: Create GitHub Release
         id: create_release
@@ -128,13 +127,13 @@ jobs:
           asset_name: cat-os-linux-${{ github.ref_name }}.zip
           asset_content_type: application/zip
 
-      - name: Upload Windows asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/dist-windows.zip
-          asset_name: cat-os-windows-${{ github.ref_name }}.zip
-          asset_content_type: application/zip
+      #- name: Upload Windows asset
+      #  uses: actions/upload-release-asset@v1
+      #  env:
+      #    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #  with:
+      #    upload_url: ${{ steps.create_release.outputs.upload_url }}
+      #    asset_path: artifacts/dist-windows.zip
+      #    asset_name: cat-os-windows-${{ github.ref_name }}.zip
+      #    asset_content_type: application/zip
 
