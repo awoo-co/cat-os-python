@@ -146,17 +146,37 @@ jobs:
           asset_name: cat-os-linux.zip
           asset_content_type: application/zip
 
+      - name: Get artifact ID and construct Actions artifact URL
+        env:
+          OWNER: awoo-co
+          REPO: cat-os-python
+        run: |
+          echo "Querying artifacts for run $GITHUB_RUN_ID"
+          ART_ID=$(gh api repos/$OWNER/$REPO/actions/runs/$GITHUB_RUN_ID/artifacts --jq '.artifacts[] | select(.name=="dist-linux.zip") | .id' || true)
+          if [ -z "$ART_ID" ]; then
+            echo "Could not find artifact named dist-linux.zip; listing all artifacts for debugging:" >&2
+            gh api repos/$OWNER/$REPO/actions/runs/$GITHUB_RUN_ID/artifacts --jq '.artifacts[] | {name: .name, id: .id}' || true
+            exit 1
+          fi
+          ART_URL="https://github.com/$OWNER/$REPO/actions/runs/$GITHUB_RUN_ID/artifacts/$ART_ID"
+          echo "ARTIFACT_ID=$ART_ID" >> $GITHUB_ENV
+          echo "ARTIFACT_URL=$ART_URL" >> $GITHUB_ENV
+
       - name: Checkout `main` to update README
         uses: actions/checkout@v4
         with:
           persist-credentials: true
           ref: main
 
-      - name: Update README with latest download link
+      - name: Update README with artifact download link
         env:
-          DOWNLOAD_URL: "https://github.com/awoo-co/cat-os-python/releases/latest/download/cat-os-linux.zip"
+          DOWNLOAD_URL: ${{ env.ARTIFACT_URL }}
         run: |
           echo "Updating README.md with $DOWNLOAD_URL"
+          if [ -z "$DOWNLOAD_URL" ]; then
+            echo "DOWNLOAD_URL is empty; aborting README update" >&2
+            exit 1
+          fi
           # If README already has the badge/link, replace it; otherwise append at the end
           if grep -q "\[Download latest Linux build\]" README.md; then
             sed -i "s|\[Download latest Linux build\].*|[Download latest Linux build]($DOWNLOAD_URL)|" README.md
@@ -167,7 +187,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add README.md
-          git commit -m "Update README: latest release download link" || echo "No changes to commit"
+          git commit -m "Update README: latest action artifact download link" || echo "No changes to commit"
           git push origin main || echo "Push failed (branch protection?) - README updated locally"
 
       #- name: Upload Windows asset

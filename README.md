@@ -1,5 +1,6 @@
 [video](https://github.com/user-attachments/assets/7bdeb76b-eacc-4cd1-b94a-5aee097c1bd9)
 # cat-os-python
+[![Release](https://img.shields.io/github/v/release/awoo-co/cat-os-python?label=release&logo=github)](https://github.com/awoo-co/cat-os-python/releases/latest)
 ## cat-os python verison 2,
 ### store apps from third party must include tkinter or turtle based apps
 
